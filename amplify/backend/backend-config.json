@@ -1,0 +1,10 @@
+{
+  "auth": {
+    "amazoncloned97a0f19": {
+      "service": "Cognito",
+      "providerPlugin": "awscloudformation",
+      "dependsOn": [],
+      "customAuth": false
+    }
+  }
+}
