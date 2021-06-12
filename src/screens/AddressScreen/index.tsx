@@ -16,33 +16,79 @@ import countryList from 'country-list';
 import {ItemValue} from '@react-native-picker/picker/typings/Picker';
 import Button from '../../components/Button';
 
+import {DataStore, Auth} from 'aws-amplify';
+import {Order, OrderProduct, CartProduct} from '../../models';
+
+import {useNavigation} from '@react-navigation/native';
+
 const countries = countryList.getData();
 
 export default function AddressScreen() {
   const [country, setCountry] = useState(countries[0].name);
   const [fullName, setFullName] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
+  const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [city, setCity] = useState('');
   const [zipCode, setZipCode] = useState('');
   const [toggleCheckBox, setToggleCheckBox] = useState(false);
+
+  const navigation = useNavigation();
+
+  const saveOrder = async () => {
+    const userData = await Auth.currentAuthenticatedUser();
+    // !create a new order
+    const newOrder = await DataStore.save(
+      new Order({
+        userSub: userData.attributes.sub,
+
+        fullName: fullName,
+        phoneNumder: phone,
+        country: country,
+        city: city,
+        address: address,
+      }),
+    );
+    //!fetch all cart items
+    // the second parametr is a filter that gives us special fields
+    const cartItems = await DataStore.query(CartProduct, cp =>
+      cp.userSub('eq', userData.attributes.sub),
+    );
+    //!attach-(прикрепить) all cart items to the ,
+    await Promise.all(
+      cartItems.map(cartItem =>
+        DataStore.save(
+          new OrderProduct({
+            quantity: cartItem.quantity,
+            option: cartItem.option,
+            productID: cartItem.productID,
+            orderID: newOrder.id,
+          }),
+        ),
+      ),
+    );
+    // !delete all cart items
+    await Promise.all(cartItems.map(cartItem => DataStore.delete(cartItem)));
+    //!redirect
+    navigation.navigate('home');
+  };
 
   const onChekout = () => {
     if (!fullName) {
       Alert.alert('Please fill in the phone number field!!');
       return;
     }
-    if (!phoneNumber) {
+    if (!phone) {
       Alert.alert('Please fill in the fullname field!!');
       return;
     }
+    saveOrder();
   };
 
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       // keyboardVerticalOffset={10}
-      >
+    >
       <ScrollView style={styles.root}>
         <View style={styles.row}>
           <View style={styles.pickerBorder}>
@@ -75,8 +121,8 @@ export default function AddressScreen() {
           <Text style={styles.label}>Phone number</Text>
           <TextInput
             style={styles.input}
-            onChangeText={setPhoneNumber}
-            value={phoneNumber}
+            onChangeText={setPhone}
+            value={phone}
             placeholder="please enter your phone number"
             keyboardType="numeric"
           />
@@ -88,12 +134,6 @@ export default function AddressScreen() {
             onChangeText={setAddress}
             value={address}
             placeholder="Street address or PO box"
-          />
-          <TextInput
-            style={styles.inputAddress}
-            onChangeText={setPhoneNumber}
-            value={phoneNumber}
-            placeholder="Apt, Suit, Building"
           />
         </View>
         <View style={styles.row}>

@@ -1,7 +1,6 @@
 import React, {useCallback, useState} from 'react';
 import {
   StyleSheet,
-  Text,
   View,
   Image,
   FlatList,
@@ -29,7 +28,7 @@ export default function ImageCarousel({images}: {images: string[]}) {
             source={{uri: item}}
           />
         )}
-        keyExtractor={item => item}
+        keyExtractor={(item) => item}
         horizontal
         showsHorizontalScrollIndicator={false}
         snapToInterval={windowWidth - 20}

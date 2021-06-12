@@ -2,60 +2,60 @@ import React, {useState} from 'react';
 import {Image, StyleSheet, Text, View} from 'react-native';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import QuantitySelector from '../QuantitySelector.tsx';
+import {DataStore} from 'aws-amplify';
+import {CartProduct} from '../../models';
 
 interface CartProductItemProps {
-  cartItem: {
-    id: string;
-    quantity: number;
-    option?: string;
-    item: {
-      id: string;
-      title: string;
-      image: string;
-      avgRating: number;
-      ratings: number;
-      oldPrice?: number;
-      price: number;
-    };
-  };
+  cartItem: CartProduct;
 }
 
 export default function CartProductItem({cartItem}: CartProductItemProps) {
-  const {quantity: quantityProp, item} = cartItem;
+  const {product, ...cartProduct} = cartItem;
+  //   const [quantity, setQuantity] = useState(quantityProp);
 
-  const [quantity, setQuantity] = useState(quantityProp);
+  const updateQuantity = async (newQuantity: number) => {
+    const original = await DataStore.query(CartProduct, cartProduct.id);
 
+    await DataStore.save(
+      CartProduct.copyOf(original, updated => {
+        updated.quantity = newQuantity;
+      }),
+    );
+  };
   const array = [...Array(5).keys()];
 
   return (
     <View style={styles.root}>
       <View style={styles.row}>
-        <Image style={styles.image} source={{uri: item.image}} />
+        <Image style={styles.image} source={{uri: product.image}} />
         <View style={styles.rightContainer}>
           <Text style={styles.title} numberOfLines={3}>
-            {item.title}
+            {product.title}
           </Text>
           <View style={styles.ratingContainer}>
             {array.map((el, idx) => (
               <FontAwesome
-                key={`${item.id}-${idx}`}
+                key={`${product.id}-${idx}`}
                 style={styles.star}
-                name={idx < Math.floor(item.avgRating) ? 'star' : 'star-o'}
+                name={idx < Math.floor(product.avgRating) ? 'star' : 'star-o'}
                 size={18}
                 color={'#e47911'}
               />
             ))}
 
-            <Text>{item.ratings}</Text>
+            <Text>{product.ratings}</Text>
           </View>
-          {item.oldPrice && (
-            <Text style={styles.oldPrice}> ${item.oldPrice}</Text>
+          {product.oldPrice && (
+            <Text style={styles.oldPrice}> ${product.oldPrice.toFixed(2)}</Text>
           )}
-          <Text style={styles.price}>from ${item.price}</Text>
+          <Text style={styles.price}>from ${product.price.toFixed(2)}</Text>
         </View>
       </View>
       <View style={styles.quantityContainer}>
-        <QuantitySelector quantity={quantity} setQuantity={setQuantity} />
+        <QuantitySelector
+          quantity={cartProduct.quantity}
+          setQuantity={updateQuantity}
+        />
       </View>
     </View>
   );

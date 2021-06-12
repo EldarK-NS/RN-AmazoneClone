@@ -1,21 +1,63 @@
-import React, {useState} from 'react';
-import {StyleSheet, Text, View, ScrollView} from 'react-native';
-import product from '../../data/product';
+import React, {useState, useEffect} from 'react';
+import {
+  StyleSheet,
+  Text,
+  View,
+  ScrollView,
+  ActivityIndicator,
+} from 'react-native';
 import {Picker} from '@react-native-picker/picker';
 import QuantitySelector from '../../components/QuantitySelector.tsx';
 import Button from '../../components/Button';
 import ImageCarousel from '../../components/ImageCarousel';
-import {useRoute} from '@react-navigation/native';
+import {useRoute, useNavigation} from '@react-navigation/native';
+import {DataStore, Auth} from 'aws-amplify';
+import {Product, CartProduct} from '../../models';
 
 export default function ProductScreen() {
-  const route = useRoute();
-  console.log(route.params);
-
-  const [selectedOption, setSelectedOption] = useState(
-    product.options ? product.options[0] : null,
+  const [product, setProduct] = useState<Product | undefined>(undefined);
+  const [selectedOption, setSelectedOption] = useState<string | undefined>(
+    undefined,
   );
-
   const [quantity, setQuantity] = useState(0);
+
+  const route = useRoute();
+  const navigation = useNavigation();
+
+  //!Get productId
+  useEffect(() => {
+    if (!route.params?.id) {
+      return;
+    }
+    DataStore.query(Product, route.params.id).then(setProduct);
+  }, [route.params?.id]);
+
+  //! product options
+  useEffect(() => {
+    if (product?.options) {
+      setSelectedOption(product.options[0]);
+    }
+  }, [product]);
+
+  //!add product To Cart
+  const onAddToCart = async () => {
+    const userData = await Auth.currentAuthenticatedUser();
+    if (!product || !userData) {
+      return;
+    }
+    const newCartProduct = new CartProduct({
+      userSub: userData.attributes.sub,
+      quantity: quantity,
+      option: selectedOption,
+      productID: product.id,
+    });
+    await DataStore.save(newCartProduct);
+    navigation.navigate('shopingCart');
+  };
+
+  if (!product) {
+    return <ActivityIndicator />;
+  }
 
   return (
     <ScrollView style={styles.container}>
@@ -35,19 +77,13 @@ export default function ProductScreen() {
         </Picker>
       </View>
       {product.oldPrice && (
-        <Text style={styles.oldPrice}> ${product.oldPrice}</Text>
+        <Text style={styles.oldPrice}> ${product.oldPrice.toFixed(2)}</Text>
       )}
-      <Text style={styles.price}>from ${product.price}</Text>
+      <Text style={styles.price}>from ${product.price.toFixed(2)}</Text>
 
       <Text style={styles.description}>{product.description}</Text>
       <QuantitySelector quantity={quantity} setQuantity={setQuantity} />
-      <Button
-        text={'ADD TO CART'}
-        onPress={() => {
-          console.warn('add');
-        }}
-        color={'#fc9803'}
-      />
+      <Button text={'ADD TO CART'} onPress={onAddToCart} color={'#fc9803'} />
       <Button
         text={'BUY NOW'}
         onPress={() => {
